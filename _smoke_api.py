@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""0-1 API smoke against running server on 11100."""
+"""0-1 API smoke against a running server on 11100（干净库）。"""
 from __future__ import annotations
 
 import json
@@ -35,29 +35,36 @@ def main() -> None:
     assert st == 200, dash
     print("dashboard", dash)
 
-    st, open1 = call("POST", "/leases/open", {"session_code": "S-MATH-01"})
+    st, open1 = call("POST", "/leases/open", {"session_code": "W-DIM-01"})
     assert st == 200, open1
+    assert open1["receipt_seq"] >= 1, open1
     print("open1", open1)
 
-    # same room+slot different teacher -> conflict
+    # 同算力槽同窗口、不同执行器 -> 冲突，且失败整笔不留 open
     st, created = call(
         "POST",
         "/sessions",
         {
-            "code": "S-MATH-DUP",
-            "title": "冲突试课",
-            "subject": "数学",
-            "room_code": "R-101",
-            "teacher_code": "T-CHEN",
+            "code": "W-DIM-DUP",
+            "title": "争用试窗",
+            "subject": "ETL",
+            "room_code": "S-ETL-01",
+            "teacher_code": "E-PIPE-02",
             "day": "2026-11-20",
             "start_min": 540,
             "end_min": 630,
         },
     )
     assert st == 200, created
-    st, conflict = call("POST", "/leases/open", {"session_code": "S-MATH-DUP"})
+    st, conflict = call("POST", "/leases/open", {"session_code": "W-DIM-DUP"})
     assert st == 409, conflict
+    detail = conflict["detail"]
+    assert detail["peer_seq"] == open1["receipt_seq"], (detail, open1)
     print("conflict", conflict)
+
+    _, conflicts = call("GET", "/conflicts")
+    assert any(c["attempt_seq"] == detail["receipt_seq"] for c in conflicts), conflicts
+    print("conflicts_ok")
 
     st, closed = call("POST", "/leases/close", {"lease_no": open1["lease_no"]})
     assert st == 200, closed
@@ -66,6 +73,7 @@ def main() -> None:
     st, dash2 = call("GET", "/dashboard")
     assert st == 200 and dash2["open_leases"] == 0, dash2
     assert dash2["conflict_count"] >= 1, dash2
+    assert dash2["consistent"] is True, dash2
     print("dashboard_after", dash2)
     print("SMOKE_OK")
 

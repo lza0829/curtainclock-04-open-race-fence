@@ -15,7 +15,6 @@ export default function Sessions() {
   const [err, setErr] = useState("");
 
   async function load() {
-    setErr("");
     try {
       setRows(await api.sessions());
     } catch (e) {
@@ -32,10 +31,21 @@ export default function Sessions() {
     setErr("");
     try {
       const r = await api.openLease(code);
-      setMsg(`已开窗，租约 ${r.lease_no}；在途租约 ${r.open_leases}`);
+      setMsg(
+        `已开窗，租约 ${r.lease_no}；回执 #${r.receipt_seq}；在途租约 ${r.open_leases}`
+      );
       await load();
     } catch (e) {
-      setErr(e.message);
+      const rc = e.receipt;
+      if (rc) {
+        setErr(
+          `开窗失败：${e.message}（本路回执 #${rc.receipt_seq}` +
+            (rc.peer_seq ? `，胜方回执 #${rc.peer_seq} ${rc.peer_session_code}` : "") +
+            "；已写入冲突桶）"
+        );
+      } else {
+        setErr(e.message);
+      }
       await load();
     }
   }

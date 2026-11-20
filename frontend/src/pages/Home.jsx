@@ -36,6 +36,15 @@ export default function Home() {
           <b>{d.draft_sessions}</b>
         </div>
       </div>
+      <p className="hint">
+        占用索引 {d.resource_locks} 行（每笔在途租约占算力槽、执行器各一行，
+        应为在途的 2 倍）：
+        {d.consistent ? (
+          <span className="tag live">水位与明细一致</span>
+        ) : (
+          <span className="tag bad">水位与明细不一致</span>
+        )}
+      </p>
     </section>
   );
 }

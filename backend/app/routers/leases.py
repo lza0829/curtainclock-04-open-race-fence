@@ -41,16 +41,29 @@ def list_conflicts():
         conn.close()
 
 
+@router.get("/receipts")
+def list_receipts():
+    conn = connect()
+    try:
+        rows = conn.execute(
+            "SELECT * FROM receipts ORDER BY seq DESC LIMIT 200"
+        ).fetchall()
+        return [dict(r) for r in rows]
+    finally:
+        conn.close()
+
+
 @router.post("/leases/open")
 def open_lease(body: OpenBody):
     try:
         with transaction() as conn:
             result = lease_svc.open_lease(conn, body.session_code)
-        if result.get("ok") is False:
-            raise HTTPException(409, result.get("error") or "开窗冲突")
-        return result
     except ValueError as e:
         raise HTTPException(409, str(e)) from e
+    if result.get("ok") is False:
+        # 回执与争用记录已随事务提交，409 体里带上双方序号便于对账
+        raise HTTPException(409, result)
+    return result
 
 
 @router.post("/leases/close")
